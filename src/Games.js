@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Stories from './stories.json';
 // Стили для кнопок (общие для всех игр)
 const buttonStyle = {
   padding: '10px 20px',
@@ -1354,24 +1355,23 @@ export const FifteenPuzzle = () => {
 };
 
 export const MadLibs = () => {
-  // Шаблоны историй
-  const storyTemplates = [
-    {
-      title: "Приключение в лесу",
-      template: "Однажды [имя] отправился в [место]. Вдруг он увидел [существительное], которое [глагол]! [имя] решил [действие], и в итоге [результат].",
-      blanks: ["имя", "место", "существительное", "глагол", "действие", "результат"]
-    },
-    {
-      title: "Космическое путешествие",
-      template: "В [год] году космический корабль '[название]' отправился к [планета]. На борту были [профессия] и [профессия]. Внезапно [происшествие], и они должны были [действие]. В итоге [результат].",
-      blanks: ["год", "название", "планета", "профессия", "профессия", "происшествие", "действие", "результат"]
-    },
-    {
-      title: "Волшебное превращение",
-      template: "[имя] всегда мечтал стать [профессия]. Однажды [существо] подарило ему [предмет], который мог [способность]. Но когда [имя] попробовал им воспользоваться, [следствие].",
-      blanks: ["имя", "профессия", "существо", "предмет", "способность", "следствие"]
+function extractBlanks(template) {
+    const blanks = [];
+    const regex = /\[(.*?)\]/g;
+    let match;
+    
+    while ((match = regex.exec(template)) !== null) {
+        blanks.push(match[1]);
     }
-  ];
+    
+    return blanks;
+}
+
+const storyTemplates = Object.entries(Stories).map(([title, template]) => ({
+    title: title, // или можно задать свои названия, например "Приключение в парке" для story1
+    template: template,
+    blanks: extractBlanks(template)
+}));
 
   // Состояния
   const [currentTemplate, setCurrentTemplate] = useState(null);
