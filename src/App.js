@@ -21,7 +21,8 @@ function App() {
       minHeight: '100vh',
       padding: '20px',
       backgroundColor: '#f5f5f5',
-      fontFamily: 'Arial, sans-serif'
+      fontFamily: 'Arial, sans-serif',
+      overflow: 'hidden'
     }}>
       <div style={{
         maxWidth: '800px',

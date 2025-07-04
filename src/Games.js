@@ -1832,12 +1832,13 @@ export const MemoryCards = () => {
 };
 
 export const Tetris = () => {
-  // Размеры игрового поля
+  // Константы игры
   const ROWS = 20;
   const COLS = 10;
   const BLOCK_SIZE = 30;
-  
-  // Фигуры Тетриса
+  const INITIAL_DROP_SPEED = 1000; // 1 секунда
+
+  // Фигуры Тетриса и их цвета
   const SHAPES = [
     [[1, 1, 1, 1]], // I
     [[1, 1], [1, 1]], // O
@@ -1847,8 +1848,7 @@ export const Tetris = () => {
     [[0, 1, 1], [1, 1, 0]], // S
     [[1, 1, 0], [0, 1, 1]]  // Z
   ];
-  
-  // Цвета фигур
+
   const COLORS = [
     '#00FFFF', // I - голубой
     '#FFFF00', // O - желтый
@@ -1859,7 +1859,7 @@ export const Tetris = () => {
     '#FF0000'  // Z - красный
   ];
 
-  // Состояние игры
+  // Состояния игры
   const [board, setBoard] = useState(createEmptyBoard());
   const [currentPiece, setCurrentPiece] = useState(null);
   const [nextPiece, setNextPiece] = useState(null);
@@ -1869,13 +1869,16 @@ export const Tetris = () => {
   const [level, setLevel] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
   const [started, setStarted] = useState(false);
+
+  // Refs
   const canvasRef = useRef(null);
   const nextPieceCanvasRef = useRef(null);
   const dropIntervalRef = useRef(null);
+  const [dropSpeed, setDropSpeed] = useState(INITIAL_DROP_SPEED);
 
-  // Создание пустого поля
+  // Создание пустого игрового поля
   function createEmptyBoard() {
-    return Array(ROWS).fill().map(() => Array(COLS).fill(0));
+    return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
   }
 
   // Генерация случайной фигуры
@@ -1889,6 +1892,174 @@ export const Tetris = () => {
     };
   }, []);
 
+  // Проверка столкновений
+  const checkCollision = useCallback((piece, pos) => {
+    for (let row = 0; row < piece.height; row++) {
+      for (let col = 0; col < piece.width; col++) {
+        if (piece.shape[row][col]) {
+          const newX = pos.x + col;
+          const newY = pos.y + row;
+          
+          if (
+            newX < 0 || 
+            newX >= COLS || 
+            newY >= ROWS ||
+            (newY >= 0 && board[newY][newX])
+          ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, [board]);
+
+  // Слияние фигуры с игровым полем
+  const mergePiece = useCallback(() => {
+    const newBoard = board.map(row => [...row]);
+    
+    if (!currentPiece) return newBoard;
+
+    for (let row = 0; row < currentPiece.height; row++) {
+      for (let col = 0; col < currentPiece.width; col++) {
+        if (currentPiece.shape[row][col]) {
+          const y = position.y + row;
+          const x = position.x + col;
+          
+          if (y >= 0 && y < ROWS && x >= 0 && x < COLS) {
+            newBoard[y][x] = currentPiece.color;
+          }
+        }
+      }
+    }
+    
+    setBoard(newBoard);
+    return newBoard;
+  }, [board, currentPiece, position]);
+
+  // Проверка заполненных линий
+  const checkLines = useCallback((newBoard) => {
+    let linesCleared = 0;
+    
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (newBoard[row].every(cell => cell !== 0)) {
+        newBoard.splice(row, 1);
+        newBoard.unshift(Array(COLS).fill(0));
+        linesCleared++;
+        row++;
+      }
+    }
+    
+    if (linesCleared > 0) {
+      setScore(prev => prev + linesCleared * 100 * level);
+      const newLevel = Math.floor((score + linesCleared * 100 * level) / 1000) + 1;
+      if (newLevel > level) {
+        setLevel(newLevel);
+        setDropSpeed(INITIAL_DROP_SPEED - (newLevel - 1) * 100);
+      }
+    }
+  }, [level, score]);
+
+  // Движение вниз
+  const moveDown = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    const newPosition = { ...position, y: position.y + 1 };
+    
+    if (checkCollision(currentPiece, newPosition)) {
+      const newBoard = mergePiece();
+      checkLines(newBoard);
+      
+      setCurrentPiece(nextPiece);
+      setNextPiece(getRandomPiece());
+      setPosition({ 
+        x: Math.floor(COLS / 2) - Math.floor(nextPiece.width / 2), 
+        y: 0 
+      });
+      
+      if (checkCollision(nextPiece, { 
+        x: Math.floor(COLS / 2) - Math.floor(nextPiece.width / 2), 
+        y: 0 
+      })) {
+        setGameOver(true);
+        clearInterval(dropIntervalRef.current);
+      }
+    } else {
+      setPosition(newPosition);
+    }
+  }, [currentPiece, position, gameOver, isPaused, nextPiece, 
+      checkCollision, mergePiece, checkLines, getRandomPiece]);
+
+  // Движение влево
+  const moveLeft = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    const newPosition = { ...position, x: position.x - 1 };
+    if (!checkCollision(currentPiece, newPosition)) {
+      setPosition(newPosition);
+    }
+  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
+
+  // Движение вправо
+  const moveRight = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    const newPosition = { ...position, x: position.x + 1 };
+    if (!checkCollision(currentPiece, newPosition)) {
+      setPosition(newPosition);
+    }
+  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
+
+  // Поворот фигуры
+  const rotate = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    const newShape = currentPiece.shape[0].map((_, i) =>
+      currentPiece.shape.map(row => row[i]).reverse()
+    );
+    
+    const rotatedPiece = {
+      ...currentPiece,
+      shape: newShape,
+      width: newShape[0].length,
+      height: newShape.length
+    };
+    
+    if (!checkCollision(rotatedPiece, position)) {
+      setCurrentPiece(rotatedPiece);
+    } else {
+      // Попробовать сдвинуть, если не помещается
+      const offsets = [1, -1, 2, -2];
+      for (const offset of offsets) {
+        const newPosition = { ...position, x: position.x + offset };
+        if (!checkCollision(rotatedPiece, newPosition)) {
+          setCurrentPiece(rotatedPiece);
+          setPosition(newPosition);
+          break;
+        }
+      }
+    }
+  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
+
+  // Мгновенное падение
+  const hardDrop = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    let dropDistance = 0;
+    let newPosition = { ...position };
+    
+    while (!checkCollision(currentPiece, { ...newPosition, y: newPosition.y + 1 })) {
+      newPosition.y++;
+      dropDistance++;
+    }
+    
+    if (dropDistance > 0) {
+      setScore(prev => prev + dropDistance * 2);
+      setPosition(newPosition);
+      moveDown();
+    }
+  }, [currentPiece, position, gameOver, isPaused, checkCollision, moveDown]);
+
   // Инициализация игры
   const initGame = useCallback(() => {
     setBoard(createEmptyBoard());
@@ -1897,21 +2068,46 @@ export const Tetris = () => {
     setGameOver(false);
     setIsPaused(false);
     setStarted(true);
+    setDropSpeed(INITIAL_DROP_SPEED);
     
     const firstPiece = getRandomPiece();
     const secondPiece = getRandomPiece();
     
     setCurrentPiece(firstPiece);
     setNextPiece(secondPiece);
-    setPosition({ x: Math.floor(COLS / 2) - Math.floor(firstPiece.width / 2), y: 0 });
+    setPosition({ 
+      x: Math.floor(COLS / 2) - Math.floor(firstPiece.width / 2), 
+      y: 0 
+    });
     
-    // Установка интервала падения
+    clearInterval(dropIntervalRef.current);
     dropIntervalRef.current = setInterval(() => {
       if (!isPaused && !gameOver) {
         moveDown();
       }
-    }, 1000 - (level - 1) * 50);
-  }, [getRandomPiece, isPaused, gameOver, level]);
+    }, dropSpeed);
+  }, [getRandomPiece, isPaused, gameOver, dropSpeed, moveDown]);
+
+  // Обработка клавиш
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!started || gameOver) return;
+      
+      switch (e.key) {
+        case 'ArrowLeft': moveLeft(); break;
+        case 'ArrowRight': moveRight(); break;
+        case 'ArrowDown': moveDown(); break;
+        case 'ArrowUp': rotate(); break;
+        case ' ': hardDrop(); e.preventDefault(); break;
+        case 'p':
+        case 'P': setIsPaused(prev => !prev); break;
+        default: break;
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [started, gameOver, moveLeft, moveRight, moveDown, rotate, hardDrop]);
 
   // Отрисовка игрового поля
   const drawBoard = useCallback(() => {
@@ -1968,242 +2164,55 @@ export const Tetris = () => {
 
   // Отрисовка следующей фигуры
   const drawNextPiece = useCallback(() => {
-  const canvas = nextPieceCanvasRef.current;
-  if (!canvas || !nextPiece) return;
-  
-  const ctx = canvas.getContext('2d');
-  // Очищаем с учетом размера следующей фигуры
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  // Заливаем фон серым
-  ctx.fillStyle = '#f0f0f0';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Центрирование фигуры
-  const offsetX = (canvas.width / BLOCK_SIZE - nextPiece.width) / 2;
-  const offsetY = (canvas.height / BLOCK_SIZE - nextPiece.height) / 2;
-  
-  // Отрисовка фигуры
-  nextPiece.shape.forEach((row, rowIndex) => {
-    row.forEach((cell, colIndex) => {
-      if (cell) {
-        ctx.fillStyle = nextPiece.color;
-        ctx.fillRect(
-          (offsetX + colIndex) * BLOCK_SIZE,
-          (offsetY + rowIndex) * BLOCK_SIZE,
-          BLOCK_SIZE,
-          BLOCK_SIZE
-        );
-        ctx.strokeStyle = '#333';
-        ctx.strokeRect(
-          (offsetX + colIndex) * BLOCK_SIZE,
-          (offsetY + rowIndex) * BLOCK_SIZE,
-          BLOCK_SIZE,
-          BLOCK_SIZE
-        );
-      }
+    const canvas = nextPieceCanvasRef.current;
+    if (!canvas || !nextPiece) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Фон
+    ctx.fillStyle = '#f0f0f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Центрирование фигуры
+    const offsetX = (canvas.width / BLOCK_SIZE - nextPiece.width) / 2;
+    const offsetY = (canvas.height / BLOCK_SIZE - nextPiece.height) / 2;
+    
+    nextPiece.shape.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        if (cell) {
+          ctx.fillStyle = nextPiece.color;
+          ctx.fillRect(
+            (offsetX + colIndex) * BLOCK_SIZE,
+            (offsetY + rowIndex) * BLOCK_SIZE,
+            BLOCK_SIZE,
+            BLOCK_SIZE
+          );
+          ctx.strokeStyle = '#333';
+          ctx.strokeRect(
+            (offsetX + colIndex) * BLOCK_SIZE,
+            (offsetY + rowIndex) * BLOCK_SIZE,
+            BLOCK_SIZE,
+            BLOCK_SIZE
+          );
+        }
+      });
     });
-  });
-}, [nextPiece]);
+  }, [nextPiece]);
 
-  // Проверка столкновений
-  const checkCollision = useCallback((piece, pos) => {
-    for (let row = 0; row < piece.height; row++) {
-      for (let col = 0; col < piece.width; col++) {
-        if (piece.shape[row][col]) {
-          const newX = pos.x + col;
-          const newY = pos.y + row;
-          
-          if (
-            newX < 0 || 
-            newX >= COLS || 
-            newY >= ROWS ||
-            (newY >= 0 && board[newY][newX])
-          ) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }, [board]);
-
-  // Фиксация фигуры на поле
-  const mergePiece = useCallback(() => {
-    if (!currentPiece) return;
-    
-    const newBoard = [...board];
-    for (let row = 0; row < currentPiece.height; row++) {
-      for (let col = 0; col < currentPiece.width; col++) {
-        if (currentPiece.shape[row][col]) {
-          const y = position.y + row;
-          const x = position.x + col;
-          if (y >= 0) {
-            newBoard[y][x] = currentPiece.color;
-          }
-        }
-      }
-    }
-    
-    setBoard(newBoard);
-    return newBoard;
-  }, [board, currentPiece, position]);
-
-  // Проверка заполненных линий
-  const checkLines = useCallback((newBoard) => {
-    let linesCleared = 0;
-    
-    for (let row = ROWS - 1; row >= 0; row--) {
-      if (newBoard[row].every(cell => cell !== 0)) {
-        // Удаление линии
-        newBoard.splice(row, 1);
-        // Добавление новой пустой линии сверху
-        newBoard.unshift(Array(COLS).fill(0));
-        linesCleared++;
-        row++; // Проверяем ту же строку снова
-      }
-    }
-    
-    if (linesCleared > 0) {
-      setScore(prev => prev + linesCleared * 100 * level);
-      // Увеличение уровня каждые 10 линий
-      const newLevel = Math.floor((score + linesCleared * 100 * level) / 1000) + 1;
-      if (newLevel > level) {
-        setLevel(newLevel);
-        // Уменьшение интервала падения
-        clearInterval(dropIntervalRef.current);
-        dropIntervalRef.current = setInterval(() => {
-          if (!isPaused && !gameOver) {
-            moveDown();
-          }
-        }, 1000 - (newLevel - 1) * 50);
-      }
-    }
-  }, [level, score, isPaused, gameOver]);
-
-  // Движение вниз
-  const moveDown = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-    
-    const newPosition = { ...position, y: position.y + 1 };
-    
-    if (checkCollision(currentPiece, newPosition)) {
-      const newBoard = mergePiece();
-      checkLines(newBoard);
-      
-      // Новая фигура
-      setCurrentPiece(nextPiece);
-      setNextPiece(getRandomPiece());
-      setPosition({ x: Math.floor(COLS / 2) - Math.floor(nextPiece.width / 2), y: 0 });
-      
-      // Проверка на проигрыш
-      if (checkCollision(nextPiece, { x: Math.floor(COLS / 2) - Math.floor(nextPiece.width / 2), y: 0 })) {
-        setGameOver(true);
-        clearInterval(dropIntervalRef.current);
-      }
-    } else {
-      setPosition(newPosition);
-    }
-  }, [currentPiece, position, gameOver, isPaused, nextPiece, checkCollision, mergePiece, checkLines, getRandomPiece]);
-
-  // Движение влево
-  const moveLeft = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-    
-    const newPosition = { ...position, x: position.x - 1 };
-    if (!checkCollision(currentPiece, newPosition)) {
-      setPosition(newPosition);
-    }
-  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
-
-  // Движение вправо
-  const moveRight = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-    
-    const newPosition = { ...position, x: position.x + 1 };
-    if (!checkCollision(currentPiece, newPosition)) {
-      setPosition(newPosition);
-    }
-  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
-
-  // Поворот фигуры
-  const rotate = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-    
-    const newShape = currentPiece.shape[0].map((_, i) =>
-      currentPiece.shape.map(row => row[i]).reverse()
-    );
-    
-    const rotatedPiece = {
-      ...currentPiece,
-      shape: newShape,
-      width: newShape[0].length,
-      height: newShape.length
-    };
-    
-    // Проверка, можно ли повернуть
-    if (!checkCollision(rotatedPiece, position)) {
-      setCurrentPiece(rotatedPiece);
-    } else {
-      // Попробовать сдвинуть, если не помещается
-      const offsets = [1, -1, 2, -2]; // Попытки сдвига
-      for (const offset of offsets) {
-        const newPosition = { ...position, x: position.x + offset };
-        if (!checkCollision(rotatedPiece, newPosition)) {
-          setCurrentPiece(rotatedPiece);
-          setPosition(newPosition);
-          break;
-        }
-      }
-    }
-  }, [currentPiece, position, gameOver, isPaused, checkCollision]);
-
-  // Падение до конца
-  const hardDrop = useCallback(() => {
-    if (!currentPiece || gameOver || isPaused) return;
-    
-    let newPosition = { ...position };
-    while (!checkCollision(currentPiece, { ...newPosition, y: newPosition.y + 1 })) {
-      newPosition.y++;
-    }
-    
-    setPosition(newPosition);
-    moveDown(); // Фиксация фигуры
-  }, [currentPiece, position, gameOver, isPaused, checkCollision, moveDown]);
-
-  // Обработка клавиш
+  // Обновление интервала падения
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (!started || gameOver) return;
-      
-      switch (e.key) {
-        case 'ArrowLeft':
-          moveLeft();
-          break;
-        case 'ArrowRight':
-          moveRight();
-          break;
-        case 'ArrowDown':
-          moveDown();
-          break;
-        case 'ArrowUp':
-          rotate();
-          break;
-        case ' ':
-          hardDrop();
-          break;
-        case 'p':
-        case 'P':
-          setIsPaused(prev => !prev);
-          break;
-        default:
-          break;
-      }
-    };
+    if (!started || gameOver) return;
     
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [started, gameOver, moveLeft, moveRight, moveDown, rotate, hardDrop]);
+    clearInterval(dropIntervalRef.current);
+    dropIntervalRef.current = setInterval(() => {
+      if (!isPaused && !gameOver) {
+        moveDown();
+      }
+    }, dropSpeed);
+    
+    return () => clearInterval(dropIntervalRef.current);
+  }, [started, gameOver, isPaused, dropSpeed, moveDown]);
 
   // Отрисовка при изменении состояния
   useEffect(() => {
@@ -2211,20 +2220,18 @@ export const Tetris = () => {
     drawNextPiece();
   }, [drawBoard, drawNextPiece]);
 
-  // Очистка интервала при размонтировании
+  // Инициализация при монтировании
   useEffect(() => {
-    return () => {
-      if (dropIntervalRef.current) {
-        clearInterval(dropIntervalRef.current);
-      }
-    };
+    initGame();
+    return () => clearInterval(dropIntervalRef.current);
   }, []);
 
+  // JSX разметка
   return (
     <div style={{ 
       textAlign: 'center', 
       padding: '20px', 
-      maxWidth: '500px', 
+      maxWidth: '800px',
       margin: '0 auto',
       fontFamily: 'Arial, sans-serif'
     }}>
@@ -2236,7 +2243,124 @@ export const Tetris = () => {
         gap: '20px',
         marginBottom: '20px'
       }}>
-        {/* Игровое поле */}
+        {/* Блок управления слева */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          width: '200px'
+        }}>
+          {/* Инструкция */}
+          <div style={{
+            backgroundColor: '#f0f0f0',
+            padding: '15px',
+            borderRadius: '5px',
+            textAlign: 'left',
+            fontSize: '14px'
+          }}>
+            <h3 style={{ marginTop: 0 }}>Управление:</h3>
+            <ul style={{ paddingLeft: '20px', margin: '10px 0' }}>
+              <li>← → — движение</li>
+              <li>↓ — ускорить падение</li>
+              <li>↑ — повернуть</li>
+              <li>Пробел — мгновенное падение</li>
+              <li>P — пауза</li>
+            </ul>
+          </div>
+
+          {/* Кнопки управления */}
+          <div style={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              <button
+                onClick={moveLeft}
+                disabled={!started || gameOver || isPaused}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: started && !gameOver && !isPaused ? '#2196F3' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
+                }}
+              >
+                ←
+              </button>
+              <button
+                onClick={rotate}
+                disabled={!started || gameOver || isPaused}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: started && !gameOver && !isPaused ? '#FFA726' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
+                }}
+              >
+                Повернуть
+              </button>
+              <button
+                onClick={moveRight}
+                disabled={!started || gameOver || isPaused}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: started && !gameOver && !isPaused ? '#2196F3' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
+                }}
+              >
+                →
+              </button>
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              <button
+                onClick={moveDown}
+                disabled={!started || gameOver || isPaused}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: started && !gameOver && !isPaused ? '#4CAF50' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
+                }}
+              >
+                ↓
+              </button>
+              <button
+                onClick={hardDrop}
+                disabled={!started || gameOver || isPaused}
+                style={{
+                  padding: '10px 15px',
+                  backgroundColor: started && !gameOver && !isPaused ? '#F44336' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
+                }}
+              >
+                Быстро ↓
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Основное игровое поле */}
         <div style={{ position: 'relative' }}>
           <canvas 
             ref={canvasRef} 
@@ -2329,7 +2453,7 @@ export const Tetris = () => {
           )}
         </div>
         
-        {/* Информационная панель */}
+        {/* Информационная панель справа */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -2344,16 +2468,16 @@ export const Tetris = () => {
           }}>
             <div style={{ fontSize: '14px', marginBottom: '5px' }}>Следующая:</div>
             <canvas 
-  ref={nextPieceCanvasRef} 
-  width={4 * BLOCK_SIZE} 
-  height={4 * BLOCK_SIZE}
-  style={{
-    border: '1px solid #333',
-    backgroundColor: '#f0f0f0', // Теперь фон серый
-    borderRadius: '3px',
-    width: '100%' // Добавим для правильного масштабирования
-  }}
-/>
+              ref={nextPieceCanvasRef} 
+              width={4 * BLOCK_SIZE} 
+              height={4 * BLOCK_SIZE}
+              style={{
+                border: '1px solid #333',
+                backgroundColor: '#f0f0f0',
+                borderRadius: '3px',
+                width: '100%'
+              }}
+            />
           </div>
           
           <div style={{
@@ -2376,116 +2500,6 @@ export const Tetris = () => {
             <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{score}</div>
           </div>
         </div>
-      </div>
-      
-      {/* Управление */}
-      <div style={{ 
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px',
-        marginBottom: '20px'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '10px'
-        }}>
-          <button
-            onClick={moveLeft}
-            disabled={!started || gameOver || isPaused}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: started && !gameOver && !isPaused ? '#2196F3' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
-            }}
-          >
-            ←
-          </button>
-          <button
-            onClick={rotate}
-            disabled={!started || gameOver || isPaused}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: started && !gameOver && !isPaused ? '#FFA726' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
-            }}
-          >
-            Повернуть
-          </button>
-          <button
-            onClick={moveRight}
-            disabled={!started || gameOver || isPaused}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: started && !gameOver && !isPaused ? '#2196F3' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
-            }}
-          >
-            →
-          </button>
-        </div>
-        
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '10px'
-        }}>
-          <button
-            onClick={moveDown}
-            disabled={!started || gameOver || isPaused}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: started && !gameOver && !isPaused ? '#4CAF50' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
-            }}
-          >
-            ↓
-          </button>
-          <button
-            onClick={hardDrop}
-            disabled={!started || gameOver || isPaused}
-            style={{
-              padding: '10px 15px',
-              backgroundColor: started && !gameOver && !isPaused ? '#F44336' : '#ccc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: started && !gameOver && !isPaused ? 'pointer' : 'not-allowed'
-            }}
-          >
-            Быстро ↓
-          </button>
-        </div>
-      </div>
-      
-      {/* Инструкция */}
-      <div style={{
-        backgroundColor: '#f0f0f0',
-        padding: '15px',
-        borderRadius: '5px',
-        textAlign: 'left',
-        fontSize: '14px'
-      }}>
-        <h3 style={{ marginTop: 0 }}>Управление:</h3>
-        <ul style={{ paddingLeft: '20px', margin: '10px 0' }}>
-          <li>← → — движение влево/вправо</li>
-          <li>↓ — ускорить падение</li>
-          <li>↑ — повернуть фигуру</li>
-          <li>Пробел — мгновенное падение</li>
-          <li>P — пауза</li>
-        </ul>
       </div>
     </div>
   );
