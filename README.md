@@ -1,3 +1,3 @@
 # A collection of mini games built with React JS
 
-I created this collection of mini-games solely to practice using React JS (and Git). The collection currently includes 8 games: Wordle, Hangman, Tic Tac Toe, Minesweeper, Fifteen, Mad Libs (Random Story Generator), Memory Cards, and Tetris. The controls there, like the games themselves, are very simple, and you won’t have any trouble figuring it out on your own.
+I created this collection of mini-games solely to practice using React JS (and Git). The collection currently includes 9 games: Wordle, Hangman, Tic Tac Toe, Minesweeper, Fifteen, Mad Libs (Random Story Generator), Memory Cards, Tetris, and Maze. The controls there, like the games themselves, are very simple, and you won’t have any trouble figuring it out on your own.
