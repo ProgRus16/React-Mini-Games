@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { evaluate, pi, e } from 'mathjs';
 import Stories from './stories.json';
+import './Calculator.css';
 // Стили для кнопок (общие для всех игр)
 const buttonStyle = {
   padding: '10px 20px',
@@ -2901,6 +2903,192 @@ export const Maze = () => {
               borderRadius: '5px'
             }}
           />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const EngineeringCalculator = () => {
+  const [input, setInput] = useState('0');
+  const [memory, setMemory] = useState(0);
+  const [isRadians, setIsRadians] = useState(true);
+  const [history, setHistory] = useState([]);
+
+  const handleButtonClick = (value) => {
+    if (input === '0' && value !== '.') {
+      setInput(value);
+    } else {
+      setInput(input + value);
+    }
+  };
+
+  const handleClear = () => {
+    setInput('0');
+  };
+
+  const handleAllClear = () => {
+    setInput('0');
+    setMemory(0);
+    setHistory([]);
+  };
+
+  const handleMemoryRecall = () => {
+    setInput(memory.toString());
+  };
+
+  const handleMemoryAdd = () => {
+    setMemory(memory + parseFloat(input));
+  };
+
+  const handleMemorySubtract = () => {
+    setMemory(memory - parseFloat(input));
+  };
+
+  const handleMemoryClear = () => {
+    setMemory(0);
+  };
+
+  const handleToggleAngleMode = () => {
+    setIsRadians(!isRadians);
+  };
+
+  const handleBackspace = () => {
+    if (input.length === 1) {
+      setInput('0');
+    } else {
+      setInput(input.slice(0, -1));
+    }
+  };
+
+  const handleScientificFunction = (func) => {
+    setInput(`${func}(${input})`);
+  };
+
+  const handleConstant = (constant) => {
+    if (input === '0') {
+      setInput(constant);
+    } else {
+      setInput(input + constant);
+    }
+  };
+
+  const safeEval = (expr) => {
+    try {
+      // Замена π → pi, e остается как e (math.js поддерживает)
+      let processedExpr = expr.replace(/π/g, 'pi');
+
+      // Если режим DEG, оборачиваем sin/cos/tan в degToRad()
+      if (!isRadians) {
+        processedExpr = processedExpr
+          .replace(/sin\(([^)]+)\)/g, `sin($1 * pi / 180)`)
+          .replace(/cos\(([^)]+)\)/g, `cos($1 * pi / 180)`)
+          .replace(/tan\(([^)]+)\)/g, `tan($1 * pi / 180)`);
+      }
+
+      const result = evaluate(processedExpr);
+
+      if (typeof result !== 'number' || Number.isNaN(result)) {
+        throw new Error('Недопустимая операция');
+      }
+
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleEquals = () => {
+    try {
+      const result = safeEval(input);
+      setHistory([...history.slice(-2), `${input} = ${result}`]);
+      setInput(result.toString());
+    } catch (error) {
+      setInput('Error');
+      setTimeout(() => setInput('0'), 1500);
+    }
+  };
+
+  return (
+    <div className="calculator">
+      <div className="display">
+        <div className="history">
+          {history.map((item, index) => (
+            <div key={index}>{item}</div>
+          ))}
+        </div>
+        <div className="input">{input}</div>
+        <div className="mode-indicator">
+          {isRadians ? 'RAD' : 'DEG'} | M: {memory.toFixed(4)}
+        </div>
+      </div>
+
+      <div className="buttons">
+        <div className="row">
+          <button onClick={handleAllClear}>AC</button>
+          <button onClick={handleClear}>C</button>
+          <button onClick={handleBackspace}>⌫</button>
+          <button onClick={() => handleScientificFunction('sqrt')}>√</button>
+          <button onClick={() => handleButtonClick('^')}>x^y</button>
+        </div>
+
+        <div className="row">
+          <button onClick={() => handleScientificFunction('sin')}>sin</button>
+          <button onClick={() => handleScientificFunction('cos')}>cos</button>
+          <button onClick={() => handleScientificFunction('tan')}>tan</button>
+          <button onClick={() => handleButtonClick('(')}>(</button>
+          <button onClick={() => handleButtonClick(')')}>)</button>
+        </div>
+
+        <div className="row">
+          <button onClick={() => handleScientificFunction('log')}>log</button>
+          <button onClick={() => handleScientificFunction('ln')}>ln</button>
+          <button onClick={() => handleConstant('π')}>π</button>
+          <button onClick={() => handleConstant('e')}>e</button>
+          <button onClick={handleToggleAngleMode}>
+            {isRadians ? 'RAD' : 'DEG'}
+          </button>
+        </div>
+
+        <div className="row">
+          <button onClick={handleMemoryRecall}>MR</button>
+          <button onClick={handleMemoryAdd}>M+</button>
+          <button onClick={handleMemorySubtract}>M-</button>
+          <button onClick={handleMemoryClear}>MC</button>
+          <button onClick={() => handleButtonClick('%')}>%</button>
+        </div>
+
+        <div className="row">
+          <button onClick={() => handleButtonClick('7')}>7</button>
+          <button onClick={() => handleButtonClick('8')}>8</button>
+          <button onClick={() => handleButtonClick('9')}>9</button>
+          <button onClick={() => handleButtonClick('/')}>/</button>
+          <button onClick={() => handleButtonClick('*')}>×</button>
+        </div>
+
+        <div className="row">
+          <button onClick={() => handleButtonClick('4')}>4</button>
+          <button onClick={() => handleButtonClick('5')}>5</button>
+          <button onClick={() => handleButtonClick('6')}>6</button>
+          <button onClick={() => handleButtonClick('-')}>-</button>
+          <button onClick={() => handleButtonClick('+')}>+</button>
+        </div>
+
+        <div className="row">
+          <button onClick={() => handleButtonClick('1')}>1</button>
+          <button onClick={() => handleButtonClick('2')}>2</button>
+          <button onClick={() => handleButtonClick('3')}>3</button>
+          <button onClick={() => handleButtonClick('.')}>.</button>
+          <button onClick={handleEquals} className="equals">=</button>
+        </div>
+
+        <div className="row">
+          <button 
+            onClick={() => handleButtonClick('0')} 
+            className="zero"
+          >
+            0
+          </button>
         </div>
       </div>
     </div>

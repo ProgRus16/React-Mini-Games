@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Select from 'react-select';
-import { Wordle, Hangman, TicTacToe, Minesweeper, FifteenPuzzle, MadLibs, MemoryCards, Tetris, Maze } from './Games';
+import { Wordle, Hangman, TicTacToe, Minesweeper, FifteenPuzzle, MadLibs, MemoryCards, Tetris, Maze, EngineeringCalculator } from './Games';
 
 function App() {
   const [currentGame, setCurrentGame] = useState(null);
@@ -14,7 +14,8 @@ function App() {
     { value: 'MadLibs', label: 'Генератор случайных историй'},
     { value: 'MemoryCards', label: 'Мемо'},
     { value: 'Tetris', label: 'Тетрис'},
-    { value: 'Maze', label: 'Лабиринт'}
+    { value: 'Maze', label: 'Лабиринт'},
+    { value: 'EngineeringCalculator', label: 'Инженерный калькулятор'}
   ];
 
   return (
@@ -76,6 +77,7 @@ function App() {
           {currentGame === 'MemoryCards' && <MemoryCards />}
           {currentGame === 'Tetris' && <Tetris />}
           {currentGame === 'Maze' && <Maze />}
+          {currentGame === 'EngineeringCalculator' && <EngineeringCalculator />}
           {/* Добавьте другие игры здесь */}
         </div>
       </div>

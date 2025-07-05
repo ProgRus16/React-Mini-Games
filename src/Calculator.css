@@ -1,0 +1,132 @@
+.calculator {
+  width: 340px;
+  margin: 20px auto;
+  border: 2px solid #2c3e50;
+  border-radius: 12px;
+  padding: 20px;
+  background-color: #34495e;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.display {
+  background-color: #ecf0f1;
+  border: 1px solid #bdc3c7;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  text-align: right;
+  min-height: 100px;
+}
+
+.history {
+  min-height: 40px;
+  color: #7f8c8d;
+  font-size: 16px;
+  text-align: right;
+  margin-bottom: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.input {
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin: 5px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mode-indicator {
+  font-size: 14px;
+  color: #7f8c8d;
+  text-align: left;
+  margin-top: 8px;
+}
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Расстояние между строками */
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+button {
+  padding: 16px;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  background-color: #ecf0f1;
+  color: #2c3e50;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #d6dbdf;
+  transform: translateY(-2px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+.equals {
+  background-color: #27ae60;
+  color: white;
+  grid-column: span 2;
+}
+
+.equals:hover {
+  background-color: #2ecc71;
+}
+
+.zero {
+  grid-column: span 3;
+}
+
+button[onclick*="handleScientificFunction"] {
+  background-color: #3498db;
+  color: white;
+}
+
+button[onclick*="handleScientificFunction"]:hover {
+  background-color: #2980b9;
+}
+
+button[onclick*="handleMemory"] {
+  background-color: #e67e22;
+  color: white;
+}
+
+button[onclick*="handleMemory"]:hover {
+  background-color: #d35400;
+}
+
+button[onclick*="handleConstant"] {
+  background-color: #9b59b6;
+  color: white;
+}
+
+button[onclick*="handleConstant"]:hover {
+  background-color: #8e44ad;
+}
+
+/* Добавьте это в Calculator.css */
+button[onclick*="handleScientificFunction"] {
+  background-color: #3498db;
+  color: white;
+  font-size: 16px; /* Уменьшаем размер шрифта для длинных надписей */
+}
+
+.input {
+  font-size: 24px; /* Уменьшаем размер для длинных выражений */
+  overflow-x: auto; /* Добавляем горизонтальную прокрутку */
+  white-space: nowrap;
+}
