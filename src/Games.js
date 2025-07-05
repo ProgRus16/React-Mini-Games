@@ -2504,3 +2504,405 @@ export const Tetris = () => {
     </div>
   );
 };
+
+export const Maze = () => {
+  // Константы игры
+  const multiplier = 3;
+  const CELL_SIZE = 40 / multiplier;
+  const ROWS = 15 * multiplier;
+  const COLS = 15 * multiplier;
+  const WALL = 1;
+  const PATH = 0;
+  const PLAYER = 2;
+  const EXIT = 3;
+
+  // Состояния игры
+  const [maze, setMaze] = useState([]);
+  const [playerPos, setPlayerPos] = useState({ row: 0, col: 0 });
+  const [exitPos, setExitPos] = useState({ row: 0, col: 0 });
+  const [moves, setMoves] = useState(0);
+  const [gameWon, setGameWon] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const canvasRef = useRef(null);
+
+  // Генерация гарантированно проходимого лабиринта
+  const generateMaze = useCallback(() => {
+    // 1. Инициализация сетки
+    const grid = Array(ROWS).fill().map(() => Array(COLS).fill(WALL));
+    
+    // 2. Выбираем стартовую позицию (фиксированная)
+    const startRow = 1;
+    const startCol = 1;
+    grid[startRow][startCol] = PATH;
+
+    // 3. Выбираем позицию выхода (фиксированная)
+    const exitRow = ROWS-2;
+    const exitCol = COLS-2;
+    grid[exitRow][exitCol] = EXIT;
+
+    // 4. Создаем основной путь
+    let current = {row: startRow, col: startCol};
+    const stack = [current];
+    const directions = [
+      {dr: 1, dc: 0}, // вниз
+      {dr: 0, dc: 1}, // вправо
+      {dr: -1, dc: 0}, // вверх
+      {dr: 0, dc: -1} // влево
+    ];
+
+    // 5. Основной алгоритм генерации
+    while (stack.length > 0) {
+      current = stack.pop();
+      
+      // Случайно перемешиваем направления
+      const shuffledDirs = [...directions].sort(() => Math.random() - 0.5);
+      
+      for (const dir of shuffledDirs) {
+        const newRow = current.row + dir.dr * 2;
+        const newCol = current.col + dir.dc * 2;
+        
+        if (newRow > 0 && newRow < ROWS-1 && newCol > 0 && newCol < COLS-1 && grid[newRow][newCol] === WALL) {
+          // Прорубаем стену между текущей и новой клеткой
+          grid[current.row + dir.dr][current.col + dir.dc] = PATH;
+          grid[newRow][newCol] = PATH;
+          stack.push(current);
+          stack.push({row: newRow, col: newCol});
+        }
+      }
+    }
+
+    // 6. Гарантируем соединение с выходом
+    grid[exitRow-1][exitCol] = PATH;
+    grid[exitRow][exitCol-1] = PATH;
+
+    // 7. Добавляем ограниченное количество тупиков (20%)
+    const totalCells = (ROWS-2) * (COLS-2);
+    const wallsToRemove = Math.floor(totalCells * 0.2);
+    
+    for (let i = 0; i < wallsToRemove; i++) {
+      const row = 1 + Math.floor(Math.random() * (ROWS-2));
+      const col = 1 + Math.floor(Math.random() * (COLS-2));
+      
+      if (grid[row][col] === WALL) {
+        // Проверяем, чтобы не создать альтернативный путь
+        const wallCount = [
+          grid[row-1][col], grid[row+1][col],
+          grid[row][col-1], grid[row][col+1]
+        ].filter(cell => cell === WALL).length;
+        
+        if (wallCount >= 3) {
+          grid[row][col] = PATH;
+        }
+      }
+    }
+
+    return {
+      grid,
+      start: {row: startRow, col: startCol},
+      exit: {row: exitRow, col: exitCol}
+    };
+  }, []);
+
+  // Проверка движения
+  const canMove = useCallback((row, col) => {
+    return (
+      row >= 0 && row < ROWS &&
+      col >= 0 && col < COLS &&
+      maze[row][col] !== WALL
+    );
+  }, [maze]);
+
+  // Движение игрока
+  const movePlayer = useCallback((dRow, dCol) => {
+    if (isPaused || gameWon) return;
+    
+    const newRow = playerPos.row + dRow;
+    const newCol = playerPos.col + dCol;
+    
+    if (canMove(newRow, newCol)) {
+      setPlayerPos({row: newRow, col: newCol});
+      setMoves(prev => prev + 1);
+      
+      if (newRow === exitPos.row && newCol === exitPos.col) {
+        setGameWon(true);
+      }
+    }
+  }, [playerPos, isPaused, gameWon, canMove, exitPos]);
+
+  // Сброс игры
+  const resetGame = useCallback(() => {
+    const {grid, start, exit} = generateMaze();
+    setMaze(grid);
+    setPlayerPos(start);
+    setExitPos(exit);
+    setMoves(0);
+    setGameWon(false);
+    setIsPaused(false);
+  }, [generateMaze]);
+
+  // Отрисовка лабиринта
+  const drawMaze = useCallback(() => {
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Рассчитываем точные размеры с учетом multiplier
+  const cellSize = Math.max(1, Math.floor(CELL_SIZE));
+  const offsetX = Math.floor((canvas.width - COLS * cellSize) / 2);
+  const offsetY = Math.floor((canvas.height - ROWS * cellSize) / 2);
+
+  // Отрисовка клеток
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const x = offsetX + col * cellSize;
+      const y = offsetY + row * cellSize;
+      
+      // Пути и выход
+      if (maze[row]?.[col] === PATH || maze[row]?.[col] === EXIT) {
+        ctx.fillStyle = maze[row][col] === EXIT ? '#4CAF50' : '#f8f8f8';
+        ctx.fillRect(x, y, cellSize, cellSize);
+        continue;
+      }
+
+      // Стены с внутренними границами
+      if (maze[row]?.[col] === WALL) {
+        ctx.fillStyle = '#3a3a3a';
+        ctx.fillRect(x, y, cellSize, cellSize);
+        
+        // Внутренние границы (не выходят за пределы клетки)
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        
+        // Только правую и нижнюю границу для каждой стены
+        if (col < COLS-1 && maze[row]?.[col+1] !== WALL) {
+          ctx.moveTo(x + cellSize - 0.5, y);
+          ctx.lineTo(x + cellSize - 0.5, y + cellSize);
+        }
+        if (row < ROWS-1 && maze[row+1]?.[col] !== WALL) {
+          ctx.moveTo(x, y + cellSize - 0.5);
+          ctx.lineTo(x + cellSize, y + cellSize - 0.5);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Игрок (центрирован)
+  const playerX = offsetX + playerPos.col * cellSize + cellSize/2;
+  const playerY = offsetY + playerPos.row * cellSize + cellSize/2;
+  const playerRadius = cellSize/2.5;
+  
+  ctx.fillStyle = '#2196F3';
+  ctx.beginPath();
+  ctx.arc(playerX, playerY, playerRadius, 0, Math.PI * 2);
+  ctx.fill();
+    
+    // Сообщение о победе
+    if (gameWon) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Победа!', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.font = '16px Arial';
+      ctx.fillText(`Ходов: ${moves}`, canvas.width / 2, canvas.height / 2 + 20);
+    }
+    
+    // Пауза
+    if (isPaused && !gameWon) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Пауза', canvas.width / 2, canvas.height / 2);
+    }
+  }, [maze, playerPos, exitPos, gameWon, isPaused, moves]);
+
+  // Инициализация игры
+  useEffect(() => {
+    resetGame();
+  }, []);
+
+  // Отрисовка при изменении состояния
+  useEffect(() => {
+    drawMaze();
+  }, [drawMaze]);
+
+  // Обработка клавиш
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      switch (e.key) {
+        case 'ArrowUp': movePlayer(-1, 0); break;
+        case 'ArrowRight': movePlayer(0, 1); break;
+        case 'ArrowDown': movePlayer(1, 0); break;
+        case 'ArrowLeft': movePlayer(0, -1); break;
+        case 'p': case 'P': setIsPaused(prev => !prev); break;
+        case 'r': case 'R': resetGame(); break;
+        default: break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [movePlayer, resetGame]);
+
+  return (
+    <div style={{ 
+      textAlign: 'center', 
+      padding: '20px', 
+      maxWidth: '800px',
+      margin: '0 auto',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      <h2 style={{ color: '#333', marginBottom: '20px' }}>Лабиринт</h2>
+      
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '20px',
+        marginBottom: '20px'
+      }}>
+        {/* Блок управления */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          width: '200px'
+        }}>
+          {/* Статистика */}
+          <div style={{
+            backgroundColor: '#f0f0f0',
+            padding: '15px',
+            borderRadius: '5px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '16px', marginBottom: '10px' }}>Ходов: {moves}</div>
+            <div style={{ fontSize: '14px' }}>Найдите путь к зелёному выходу</div>
+          </div>
+
+          {/* Кнопки управления */}
+          <div style={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <button
+              onClick={() => movePlayer(-1, 0)}
+              disabled={isPaused || gameWon}
+              style={{
+                padding: '10px',
+                backgroundColor: isPaused || gameWon ? '#ccc' : '#2196F3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: isPaused || gameWon ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Вверх (↑)
+            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => movePlayer(0, -1)}
+                disabled={isPaused || gameWon}
+                style={{
+                  padding: '10px',
+                  backgroundColor: isPaused || gameWon ? '#ccc' : '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: isPaused || gameWon ? 'not-allowed' : 'pointer',
+                  flex: 1
+                }}
+              >
+                Влево (←)
+              </button>
+              <button
+                onClick={() => movePlayer(0, 1)}
+                disabled={isPaused || gameWon}
+                style={{
+                  padding: '10px',
+                  backgroundColor: isPaused || gameWon ? '#ccc' : '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: isPaused || gameWon ? 'not-allowed' : 'pointer',
+                  flex: 1
+                }}
+              >
+                Вправо (→)
+              </button>
+            </div>
+            <button
+              onClick={() => movePlayer(1, 0)}
+              disabled={isPaused || gameWon}
+              style={{
+                padding: '10px',
+                backgroundColor: isPaused || gameWon ? '#ccc' : '#2196F3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: isPaused || gameWon ? 'not-allowed' : 'pointer'
+              }}
+            >
+              Вниз (↓)
+            </button>
+          </div>
+          
+          {/* Управление игрой */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => setIsPaused(prev => !prev)}
+              disabled={gameWon}
+              style={{
+                padding: '10px',
+                backgroundColor: gameWon ? '#ccc' : '#FFA726',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: gameWon ? 'not-allowed' : 'pointer',
+                flex: 1
+              }}
+            >
+              {isPaused ? 'Продолжить' : 'Пауза (P)'}
+            </button>
+            <button
+              onClick={resetGame}
+              style={{
+                padding: '10px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                flex: 1
+              }}
+            >
+              Новая игра (R)
+            </button>
+          </div>
+        </div>
+
+        {/* Игровое поле */}
+        <div style={{ position: 'relative' }}>
+          <canvas 
+            ref={canvasRef} 
+            width={COLS * CELL_SIZE} 
+            height={ROWS * CELL_SIZE}
+            style={{
+              border: '2px solid #333',
+              backgroundColor: '#f8f8f8',
+              borderRadius: '5px'
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
