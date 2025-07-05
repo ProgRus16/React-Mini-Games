@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/React-Mini-Games/static/css/main.e6c13ad2.css",
-    "main.js": "/React-Mini-Games/static/js/main.2c4d5634.js",
+    "main.css": "/React-Mini-Games/static/css/main.9bc5be1b.css",
+    "main.js": "/React-Mini-Games/static/js/main.706f3956.js",
     "static/js/69.4abb1902.chunk.js": "/React-Mini-Games/static/js/69.4abb1902.chunk.js",
     "index.html": "/React-Mini-Games/index.html",
-    "main.e6c13ad2.css.map": "/React-Mini-Games/static/css/main.e6c13ad2.css.map",
-    "main.2c4d5634.js.map": "/React-Mini-Games/static/js/main.2c4d5634.js.map",
+    "main.9bc5be1b.css.map": "/React-Mini-Games/static/css/main.9bc5be1b.css.map",
+    "main.706f3956.js.map": "/React-Mini-Games/static/js/main.706f3956.js.map",
     "69.4abb1902.chunk.js.map": "/React-Mini-Games/static/js/69.4abb1902.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.e6c13ad2.css",
-    "static/js/main.2c4d5634.js"
+    "static/css/main.9bc5be1b.css",
+    "static/js/main.706f3956.js"
   ]
 }
