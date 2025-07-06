@@ -1,23 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { evaluate, pi, e } from 'mathjs';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { evaluate } from 'mathjs';
 import Stories from './stories.json';
 import './Calculator.css';
-// Стили для кнопок (общие для всех игр)
-const buttonStyle = {
-  padding: '10px 20px',
-  fontSize: '16px',
-  backgroundColor: '#4CAF50',
-  color: 'white',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  margin: '10px',
-  transition: 'background-color 0.3s',
-  '&:hover': {
-    backgroundColor: '#45a049'
-  }
-};
-
 
 export const Wordle = () => {
   const WORDS = [

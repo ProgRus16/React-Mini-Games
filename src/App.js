@@ -15,7 +15,8 @@ function App() {
     { value: 'MemoryCards', label: 'Мемо'},
     { value: 'Tetris', label: 'Тетрис'},
     { value: 'Maze', label: 'Лабиринт'},
-    { value: 'EngineeringCalculator', label: 'Инженерный калькулятор'}
+    { value: 'EngineeringCalculator', label: 'Инженерный калькулятор'},
+    { value: 'TowerStack', label: 'Башня'}
   ];
 
   return (
